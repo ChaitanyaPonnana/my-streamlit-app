@@ -21,11 +21,15 @@ popular_stocks = {
 
 selected_stock = st.sidebar.selectbox("Choose a stock", list(popular_stocks.keys()))
 compare_others = st.sidebar.multiselect("Compare with others", [k for k in popular_stocks if k != selected_stock])
-api_key = st.sidebar.text_input("Alpha Vantage API Key", type="password", value="UJP5ZC97Z7TJBWU9")
+api_key = st.sidebar.text_input("Alpha Vantage API Key", type="password")
 
 # --- Function to fetch stock data ---
+@st.cache_data(show_spinner=False)
 def fetch_stock_data(symbol, api_key):
-    url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={api_key}&outputsize=compact"
+    url = (
+        f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY"
+        f"&symbol={symbol}&apikey={api_key}&outputsize=compact"
+    )
     r = requests.get(url)
     data = r.json()
     if 'Time Series (Daily)' not in data:
@@ -43,10 +47,11 @@ def fetch_stock_data(symbol, api_key):
     df = df.sort_index()
     return df
 
-# --- Main Chart ---
+# --- Main Content ---
 if api_key:
     main_symbol = popular_stocks[selected_stock]
-    main_df = fetch_stock_data(main_symbol, api_key)
+    with st.spinner(f"Fetching data for {main_symbol}..."):
+        main_df = fetch_stock_data(main_symbol, api_key)
 
     if main_df is not None:
         st.subheader(f"📊 Closing Price of {main_symbol}")
@@ -60,7 +65,12 @@ if api_key:
             if df is not None:
                 fig.add_trace(go.Scatter(x=df.index, y=df['Close'], name=symbol, line=dict(dash='dash')))
 
-        fig.update_layout(title="Stock Closing Price Comparison", xaxis_title="Date", yaxis_title="Price", template="plotly_white")
+        fig.update_layout(
+            title="Stock Closing Price Comparison",
+            xaxis_title="Date",
+            yaxis_title="Price (USD)",
+            template="plotly_white"
+        )
         st.plotly_chart(fig, use_container_width=True)
 
         # --- Moving Average ---
@@ -72,6 +82,6 @@ if api_key:
         st.subheader("📋 Recent Data")
         st.dataframe(main_df.tail(10))
     else:
-        st.error("⚠ Failed to fetch data. Check your API key or try again later.")
+        st.error("⚠ Failed to fetch data. Check your API key, stock symbol, or try again later.")
 else:
-    st.info("🔑 Please enter your Alpha Vantage API key.")
+    st.info("🔑 Please enter your Alpha Vantage API key in the sidebar.")
